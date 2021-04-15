@@ -32,7 +32,7 @@ Create the ssl certificates used by Squid.
 
 ```sh
 mkdir -p /etc/squid/ssl && cd /etc/squid/ssl
-openssl req -new -newkey rsa:2048 -sha256 -days 365 -nodes -x509 -extensions v3_ca -keyout squid.key  -out squid.crt -subj "/C=XX/ST=XX/L=squid/O=squid/CN=squid"
+openssl req -new -newkey rsa -nodes -x509 -keyout squid.key  -out squid.crt -subj "/O=squid/CN=Squid CA"
 cat squid.key squid.crt | tee squid.pem
 ```
 
@@ -78,6 +78,28 @@ I tipically like to start Squid with the command below to I can easily check for
 squid -d 10
 ```
 
+## Using intermediate certificates
+
+You can use an intermediate CA on the proxy for SSL-Bump. In case if the intermediate certificate being compromised, you can simply revoke the intermediate with root and sign new intermediate without disturb your clients.
+
+Start by downloading [openssl.cnf](openssl.cnf) and creating the certificates with the commands below.
+
+```bash
+openssl req -new -newkey rsa -nodes -x509 -keyout root.key -out root.crt -subj "/O=squid/CN=Squid Global Root CA"
+openssl req -new -newkey rsa -nodes -keyout squid.key -out squid.csr -subj "/O=squid/CN=Squid Intermediate CA"
+touch index.txt
+echo 1000 > serial
+openssl ca -config openssl.cnf -extensions v3_intermediate_ca -notext -md sha256 -in squid.csr -out squid.crt
+cat squid.key squid.crt | tee squid.pem
+cat squid.crt root.crt | tee chain.crt
+```
+
+Now we will configure Squid to send the intermediate and root certificates so we do not need to install the intermediate to clients. We will add the `cafile` attribute as below.
+
+```squid
+https_port 3130 intercept ssl-bump generate-host-certificates=on cert=/etc/squid/ssl/squid.pem cafile=/etc/squid/ssl/chain.pem
+```
+
 ## Clients
 
 Any client trying to access the Internet going thru our proxy, should not accept the self-signed certificate used by our proxy. We can add it as a trusted CA.
@@ -100,8 +122,16 @@ dpkg-reconfigure ca-certificates
 tcpsump dst port 443
 ```
 
-`openssl` can help you better understand the certificates used.
+`openssl s_client` can help you better understand the certificates chain received by the client.
 
 ```sh
-openssl s_client www.datadoghq.com:443
+openssl s_client -connect www.datadoghq.com:443 -quiet
 ```
+
+## Useful resources
+
+[OpenSSL](https://www.openssl.org/)
+
+[SSL-Bump using an intermediate CA](https://wiki.squid-cache.org/ConfigExamples/Intercept/SslBumpWithIntermediateCA)
+
+[OpenSSL Certificate Authority](https://jamielinux.com/docs/openssl-certificate-authority/index.html)
