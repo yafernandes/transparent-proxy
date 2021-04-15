@@ -24,7 +24,7 @@ resource "aws_subnet" "proxy" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name    = var.project_name
+    Name    = "${var.project_name}-proxy"
     Creator = var.creator
   }
 }
@@ -36,7 +36,7 @@ resource "aws_subnet" "client" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name    = var.project_name
+    Name    = "${var.project_name}-client"
     Creator = var.creator
   }
 }

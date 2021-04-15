@@ -7,7 +7,7 @@ resource "aws_route53_record" "proxy" {
   name    = "${aws_instance.proxy.tags.dns_name}.tp"
   type    = "CNAME"
   ttl     = "60"
-  records = [aws_instance.proxy.public_ip]
+  records = [aws_instance.proxy.public_dns]
 }
 
 resource "aws_route53_record" "client" {
