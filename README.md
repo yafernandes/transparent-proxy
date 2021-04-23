@@ -52,8 +52,6 @@ https_port 3130 intercept ssl-bump generate-host-certificates=on cert=/etc/squid
 ssl_bump bump all
 
 EOF
-
-squid -k parse
 ```
 
 We need to reroute incoming HTTP requests to Squid.
@@ -75,6 +73,8 @@ squid -z
 I tipically like to start Squid with the command below to I can easily check for any issues.
 
 ```sh
+squid -k parse
+
 squid -d 10
 ```
 
@@ -89,9 +89,19 @@ openssl req -new -newkey rsa -nodes -x509 -keyout root.key -out root.crt -subj "
 openssl req -new -newkey rsa -nodes -keyout squid.key -out squid.csr -subj "/O=squid/CN=Squid Intermediate CA"
 touch index.txt
 echo 1000 > serial
+```
+
+The next command must be executed by itself because it will require user input to confirm the operation.
+
+```bash
 openssl ca -config openssl.cnf -extensions v3_intermediate_ca -notext -md sha256 -in squid.csr -out squid.crt
+```
+
+Now let's create the multiple pem files required.
+
+```bash
 cat squid.key squid.crt | tee squid.pem
-cat squid.crt root.crt | tee chain.crt
+cat squid.crt root.crt | tee chain.pem
 ```
 
 Now we will configure Squid to send the intermediate and root certificates so we do not need to install the intermediate to clients. We will add the `cafile` attribute as below.
@@ -108,7 +118,7 @@ Any client trying to access the Internet going thru our proxy, should not accept
 mkdir /usr/share/ca-certificates/extra
 ```
 
-Copy `/etc/squid/ssl/squid.crt` to the cirectory create above. It is a simple text file, copy and past will do the trick. Next we need to update our certificats.
+Copy `/etc/squid/ssl/squid.crt`, or `/etc/squid/ssl/root.crt` if using intermediate certificate, to the directory create above. It is a simple text file, copy and past will do the trick. Next we need to update our certificats.
 
 ```sh
 dpkg-reconfigure ca-certificates
